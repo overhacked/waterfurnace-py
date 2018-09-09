@@ -1,0 +1,129 @@
+{
+  "cmd": "login",
+  "tid": 1,
+  "sessionid": "1of84fc8b1kkveq0pcgn0vnogfpos2g24qnladkb9l2j1mmjdt1vuaotf63q84b3vvfb3di6arv0iu4acptauf8mq91udikhl5kphc0",
+  "source": "tstat"
+}
+{
+  "firstname": "Ross",
+  "lastname": "Williams",
+  "emailaddress": "ross@sineya.org",
+  "key": 2854,
+  "success": true,
+  "locations": [
+    {
+      "description": "Home",
+      "postal": "30268",
+      "city": "Chattahoochee Hills",
+      "state": "GA",
+      "country": "US",
+      "latitude": 33.5530697,
+      "longitude": -84.7326827,
+      "gateways": [
+        {
+          "gwid": "001EC01F3220",
+          "description": "1:Kitchen/2:Larder/3:Root C.",
+          "type": "AWL",
+          "awltstattype": 200,
+          "awltstattypedesc": "IZ2",
+          "iz2_max_zones": 3,
+          "awlabctypedesc": "Variable Speed",
+          "awlabctype": 3,
+          "blowertype": 1,
+          "online": 1
+        },
+        {
+          "gwid": "001EC02B2D8E",
+          "description": "1:Master Bdrm/2:Loom Rm",
+          "type": "AWL",
+          "awltstattype": 200,
+          "awltstattypedesc": "IZ2",
+          "iz2_max_zones": 2,
+          "awlabctypedesc": "Dual Capacity",
+          "awlabctype": 2,
+          "blowertype": 0,
+          "online": 1
+        },
+        {
+          "gwid": "001EC02B2D9F",
+          "description": "1:Girls' Bdrm/2:... Bath/3:Gathering/4:Guest",
+          "type": "AWL",
+          "awltstattype": 200,
+          "awltstattypedesc": "IZ2",
+          "iz2_max_zones": 4,
+          "awlabctypedesc": "Variable Speed",
+          "awlabctype": 3,
+          "blowertype": 1,
+          "online": 1
+        }
+      ]
+    }
+  ],
+  "rsp": "login",
+  "tid": 1,
+  "err": ""
+}
+{
+  "cmd": "read",
+  "tid": 12,
+  "awlid": "001EC02B2D8E",
+  "source": "tstat",
+  "zone": 0,
+  "rlist": [
+    "AWLABCType",
+    "iz2_humidity_offset_settings",
+    "iz2_humidity",
+    "iz2_outdoor_airtemp",
+    "ModeOfOperation",
+    "LockoutStatusCode",
+    "actualcompressorspeed",
+    "iz2_z1_activesettings",
+    "iz2_z1_roomtemp"
+  ]
+}
+{
+  "rsp": "read",
+  "awlid": "001EC02B2D8E",
+  "tid": 12,
+  "err": "",
+  "awlabctype": 2,
+  "zone": 0,
+  "iz2_humidity_offset_settings": {
+    "humidity_offset": 0,
+    "humdity_control_option": 2,
+    "dehumidification_mode": 1,
+    "humidification_mode": 0
+  },
+  "iz2_humidity": 54,
+  "iz2_outdoor_airtemp": 0,
+  "modeofoperation": 3,
+  "lockoutstatuscode": 0,
+  "actualcompressorspeed": 0,
+  "iz2_z1_activesettings": {
+    "iz2_z1_temp_override": 1,
+    "iz2_z1_call": 6,
+    "iz2_z1_damper": 1,
+    "iz2_z1_tstatmode": 1,
+    "iz2_z1_activemode": 2,
+    "iz2_z1_heatingsp_read": 60,
+    "iz2_z1_coolingsp_read": 74,
+    "iz2_z1_fanmode_read": 0,
+    "iz2_z1_intertimeon_read": 0,
+    "iz2_z1_intertimeoff_read": 5
+  },
+  "iz2_z1_roomtemp": 75
+}
+{
+  "cmd": "write",
+  "tid": 11,
+  "awlid": "001EC02B2D8E",
+  "source": "tstat",
+  "iz2_z1_coolingsp_write": 74
+}
+{
+  "rsp": "write",
+  "awlid": "001EC02B2D8E",
+  "tid": 11,
+  "err": "",
+  "data": "ok"
+}
