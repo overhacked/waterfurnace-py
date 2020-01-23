@@ -10,6 +10,7 @@ websockets = "*"
 Autologging = "*"
 requests = "*"
 urllib3 = "*"
+quart = "*"
 
 [requires]
 python_version = "3.7"
