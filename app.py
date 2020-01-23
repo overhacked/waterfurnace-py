@@ -3,11 +3,15 @@ import logging
 import sys
 
 import autologging
+import backoff
 from quart import jsonify, Quart
 
 from awl import AWL, AWLConnectionError, AWLLoginError
 
 app = Quart(__name__, instance_relative_config=False)
+app.config.update(
+    websockets_warn_after_disconnected=10,
+)
 app.config.from_pyfile('awl_config.py')
 
 logging.basicConfig(
@@ -31,7 +35,30 @@ async def awl_reconnection_handler():
         await establish_awl_session()
 
 
+async def backoff_handler(details):
+    try:
+        max_elapsed = float(app.config['websockets_warn_after_disconnected'])
+    except ValueError:
+        max_elapsed = 0.0
+
+    if details['elapsed'] > max_elapsed:
+        app.logger.critical("Cannot reconnect to AWL after {tries} tries "
+                            "over {elapsed:0.1f} seconds. "
+                            "Retrying in {wait:0.1f} "
+                            "seconds.".format(**details))
+
+
+async def backoff_success_handler(details):
+    if details['tries'] > 1:
+        app.logger.warning("Reconnected to AWL after {elapsed:0.1f} "
+                           "seconds ({tries} tries)".format(**details))
+
+
 @app.before_serving
+@backoff.on_exception(backoff.expo,
+                      (AWLConnectionError, AWLLoginError),
+                      on_backoff=backoff_handler,
+                      on_success=backoff_success_handler)
 async def establish_awl_session():
     app.awl_connection = AWL(
         app.config['WATERFURNACE_USER'],

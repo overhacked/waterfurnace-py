@@ -238,7 +238,12 @@ class AWL:
             async with self.transaction_lock:
                 self.next_transaction_id = None
 
-        self.__http_logout()
+        try:
+            self.__http_logout()
+        except (AWLLoginError, IOError):
+            self.__log.warning("Logout failed during close()")
+            # Ignore any logout errors and just exit
+            pass
 
     @property
     def session_id(self):

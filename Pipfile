@@ -11,6 +11,7 @@ Autologging = "*"
 requests = "*"
 urllib3 = "*"
 quart = "*"
+backoff = "*"
 
 [requires]
 python_version = "3.7"
