@@ -180,7 +180,9 @@ class AWL:
                     async with self.transaction_lock:
                         self.transactions.pop(tid).set_result(data)
                 except KeyError:
-                    self.__log.warning(f"< Unknown transaction id {tid}")
+                    self.__log.warning(
+                        f"< Unknown transaction id {tid}: {message}"
+                    )
         except websockets.ConnectionClosedError:
             self._login_data = None
             raise
