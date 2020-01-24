@@ -97,5 +97,3 @@ async def list_thermostats():
                         app.logger.error("Couldn't get gwid")
 
     return jsonify(thermostats)
-
-app.run()
