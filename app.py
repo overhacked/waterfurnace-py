@@ -1,8 +1,5 @@
 import asyncio
-import logging
-import sys
 
-import autologging
 import backoff
 from quart import jsonify, Quart
 
@@ -13,13 +10,6 @@ app.config.update(
     websockets_warn_after_disconnected=10,
 )
 app.config.from_pyfile('awl_config.py')
-
-logging.basicConfig(
-    level=autologging.TRACE,
-    stream=sys.stdout,
-    format="%(levelname)s:%(name)s:%(funcName)s:%(message)s"
-)
-logging.getLogger('websockets').setLevel(logging.DEBUG)
 
 
 async def awl_reconnection_handler():
