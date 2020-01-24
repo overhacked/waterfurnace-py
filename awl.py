@@ -237,11 +237,11 @@ class AWL:
     async def close(self):
         if self.websockets_connection is not None:
             await self.websockets_connection.close()
-            async with self.transaction_lock:
-                self.next_transaction_id = None
 
         try:
             self.__http_logout()
+            async with self.transaction_lock:
+                self.next_transaction_id = None
         except (AWLLoginError, IOError):
             self.__log.warning("Logout failed during close()")
             # Ignore any logout errors and just exit

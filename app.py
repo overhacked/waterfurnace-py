@@ -1,7 +1,7 @@
 import asyncio
 
 import backoff
-from quart import abort, jsonify, Quart
+from quart import abort, jsonify, request, Quart
 
 from awl import AWL, AWLConnectionError, AWLLoginError
 
@@ -67,6 +67,23 @@ async def awl_read_gateway(gwid):
     return await app.awl_connection.read(gwid)
 
 
+def awl_enumerate_gateways():
+    awl_login_data = app.awl_connection.login_data
+    gateways = list()
+    for location in awl_login_data['locations']:
+        for gateway in location['gateways']:
+            try:
+                gateways.append({
+                    'location': location.get('description'),
+                    'gwid': gateway['gwid'],
+                    'system_name': gateway.get('description'),
+                })
+            except KeyError:
+                app.logger.error("Couldn't get gwid")
+
+    return gateways
+
+
 def awl_enumerate_zones():
     awl_login_data = app.awl_connection.login_data
     thermostats = list()
@@ -99,7 +116,9 @@ async def list_thermostats():
 
 @app.route('/gateways')
 async def list_gateways():
-    return jsonify(app.awl_connection.login_data)
+    if 'raw' in request.args:
+        return jsonify(app.awl_connection.login_data)
+    return jsonify(awl_enumerate_gateways())
 
 
 @app.route('/gateways/<gwid>')
