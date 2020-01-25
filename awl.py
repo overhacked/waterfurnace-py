@@ -17,6 +17,10 @@ class AWLConnectionError(RuntimeError):
     pass
 
 
+class AWLTransactionError(RuntimeError):
+    pass
+
+
 @logged
 @traced
 class AWL:
@@ -92,7 +96,9 @@ class AWL:
 
     async def __next_transaction_id(self):
         async with self._transaction_lock:
-            self._transaction_id = (self._transaction_id + 1) % 100
+            # Reset to 1 when next tid would be larger
+            # than an 8-bit integer
+            self._transaction_id = (self._transaction_id + 1) % 256 or 1
             return self._transaction_id
 
     async def __reset_transaction_id(self):
@@ -113,6 +119,18 @@ class AWL:
             self.__log.warning(
                 f"< Unknown transaction id {tid}: {data!r}"
             )
+
+    async def __abort_transaction(self, tid, err=None):
+        try:
+            async with self._transaction_lock:
+                self._transactions.pop(tid).set_exception(
+                    AWLTransactionError(err)
+                )
+        except KeyError:
+            self.__log.debug(
+                f"Tried to abort non-existent transaction (tid={tid})"
+            )
+            pass
 
     def __http_login(self):
         self.http_session = requests.Session()
@@ -196,7 +214,16 @@ class AWL:
             async for message in self.websockets_connection:
                 self.__log.debug(f"< {message}")
                 data = json.loads(message)
-                tid = data['tid']
+
+                try:
+                    tid = data['tid']
+                except KeyError:
+                    self.__log.error(f"Message came in without tid: {message}")
+                    continue
+
+                if data.get('err'):
+                    await self.__abort_transaction(tid, data['err'])
+                    continue
                 await self.__commit_transaction(tid, data)
         except websockets.ConnectionClosedError:
             self._login_data = None
@@ -231,7 +258,12 @@ class AWL:
 
     async def _command_wait(self, command, **kwargs):
         fut = await self._command(command, **kwargs)
-        ret = await fut
+        try:
+            ret = await fut
+        except AWLTransactionError as e:
+            self.__log.error(f"Transaction error: {e!s}")
+            raise
+
         return ret
 
     async def wait_closed(self):
