@@ -223,8 +223,10 @@ class AWL:
         })
         payload_json = json.dumps(payload)
         self.__log.debug(f"> {payload_json}")
-        await self.websockets_connection.send(payload_json)
+        # Start transaction before call to send() in case
+        # receive comes back really quickly
         transaction_future = await self.__start_transaction(tid)
+        await self.websockets_connection.send(payload_json)
         return transaction_future
 
     async def _command_wait(self, command, **kwargs):
