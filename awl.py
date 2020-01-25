@@ -9,6 +9,10 @@ import websockets
 from autologging import logged, traced
 
 
+# Default 1 hour timeout
+AWL_DEFAULT_TRANSACTION_TIMEOUT = 60*60
+
+
 class AWLLoginError(RuntimeError):
     pass
 
@@ -98,17 +102,42 @@ class AWL:
         async with self._transaction_lock:
             # Reset to 1 when next tid would be larger
             # than an 8-bit integer
-            self._transaction_id = (self._transaction_id + 1) % 256 or 1
+            initial_transaction_id = self._transaction_id or 1
+            while True:
+                self._transaction_id = (self._transaction_id + 1) % 256 or 1
+                if (
+                    self._transaction_id not in self._transactions
+                    or self._transactions[self._transaction_id].done()
+                   ):
+                    break
+                elif self._transaction_id == initial_transaction_id:
+                    # This would be true after reset_transaction_id, but
+                    # self._transactions will be empty, so the previous
+                    # condition will never fall through
+                    raise AWLTransactionError(
+                        'Maximum 255 transactions in progress'
+                    )
             return self._transaction_id
 
     async def __reset_transaction_id(self):
         async with self._transaction_lock:
+            # Drain the transactions dict and
+            # cancel any pending futures
+            while len(self._transactions) > 0:
+                tid, fut = self._transactions.popitem()
+                if fut.cancel():
+                    self.__log.debug(f"Cancelled transaction tid={tid}")
+            # Reset the transaction id
             self._transaction_id = 0
 
-    async def __start_transaction(self, tid):
+    async def __start_transaction(self, tid, timeout):
         async with self._transaction_lock:
             transaction_future = asyncio.get_running_loop().create_future()
             self._transactions[tid] = transaction_future
+            # Cancel the future if the timeout expires
+            asyncio.create_task(
+                asyncio.wait_for(transaction_future, timeout)
+            )
         return transaction_future
 
     async def __commit_transaction(self, tid, data):
@@ -239,7 +268,9 @@ class AWL:
         )
         return self._login_data
 
-    async def _command(self, command, **kwargs):
+    async def _command(self, command,
+                       transaction_timeout=AWL_DEFAULT_TRANSACTION_TIMEOUT,
+                       **kwargs):
         tid = await self.__next_transaction_id()
 
         payload = kwargs
@@ -252,7 +283,9 @@ class AWL:
         self.__log.debug(f"> {payload_json}")
         # Start transaction before call to send() in case
         # receive comes back really quickly
-        transaction_future = await self.__start_transaction(tid)
+        transaction_future = await (
+            self.__start_transaction(tid, transaction_timeout)
+        )
         await self.websockets_connection.send(payload_json)
         return transaction_future
 
@@ -302,7 +335,8 @@ class AWL:
     def login_data(self):
         return self._login_data
 
-    async def read(self, awlid, zone=0):
+    async def read(self, awlid, zone=0,
+                   timeout=AWL_DEFAULT_TRANSACTION_TIMEOUT):
         read_data = await self._command_wait(
             'read',
             awlid=awlid,

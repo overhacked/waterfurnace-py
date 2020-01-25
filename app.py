@@ -5,7 +5,7 @@ import autologging
 import backoff
 from quart import abort, jsonify, request, Quart
 
-from awl import AWL, AWLConnectionError, AWLLoginError, AWLTransactionError
+from awl import AWL, AWLConnectionError, AWLLoginError
 
 
 app = Quart(__name__, instance_relative_config=False)
