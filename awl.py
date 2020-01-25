@@ -339,7 +339,7 @@ class AWL:
                    timeout=AWL_DEFAULT_TRANSACTION_TIMEOUT):
         read_rlist = self.AWL_GATEWAY_RLIST
 
-        max_zones = self.get_gwid_param('iz2_max_zones')
+        max_zones = self.get_gwid_param(awlid, 'iz2_max_zones')
         if max_zones:
             for zoneid in range(1, max_zones + 1):
                 read_rlist.extend([
