@@ -102,7 +102,7 @@ class AWL:
     async def __start_transaction(self, tid):
         async with self._transaction_lock:
             transaction_future = asyncio.get_running_loop().create_future()
-            self.transactions[tid] = transaction_future
+            self._transactions[tid] = transaction_future
         return transaction_future
 
     async def __commit_transaction(self, tid, data):
