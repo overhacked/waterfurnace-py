@@ -29,6 +29,9 @@ class AWLTransactionError(RuntimeError):
 @traced
 class AWL:
 
+    # Taken from setTimeout(1500000, ...) in Symphony JavaScript
+    SESSION_TIMEOUT = 1500
+
     LOGIN_URI = 'https://symphony.mywaterfurnace.com/account/login'
     AWLCONFIG_URI = \
         'https://symphony.mywaterfurnace.com/assets/js/awlconfig.js.php'
@@ -306,6 +309,13 @@ class AWL:
 
         await self.__websockets_connect(websockets_uri)
         await self.__websockets_login()
+        asyncio.create_task(self.reconnect_session())
+
+    async def reconnect_session(self):
+        await asyncio.sleep(self.SESSION_TIMEOUT)
+        self.__log.info("Reconnecting due to session timeout")
+        await self.close()
+        await self.connect()
 
     def logout(self):
         return self.__http_logout()
