@@ -34,46 +34,40 @@ class AWL:
         'https://symphony.mywaterfurnace.com/assets/js/awlconfig.js.php'
     COMMAND_SOURCE = 'consumer dashboard'
     AWL_GATEWAY_RLIST = [
-        "compressorpower",
-        "fanpower",
-        "auxpower",
-        "looppumppower",
-        "totalunitpower",
-        "AWLABCType",
-        "ModeOfOperation",
         "ActualCompressorSpeed",
         "AirflowCurrentSpeed",
-        "AuroraOutputEH1",
-        "AuroraOutputEH2",
+        "AOCEnteringWaterTemp",
         "AuroraOutputCC",
         "AuroraOutputCC2",
-        "TStatDehumidSetpoint",
-        "TStatRelativeHumidity",
-        "LeavingAirTemp",
-        "TStatRoomTemp",
-        "EnteringWaterTemp",
-        "AOCEnteringWaterTemp",
+        "AuroraOutputEH1",
+        "AuroraOutputEH2",
         "auroraoutputrv",
+        "auxpower",
+        "AWLABCType",
         "AWLTStatType",
-        "humidity_offset_settings",
-        "iz2_humidity_offset_settings",
+        "compressorpower",
         "dehumid_humid_sp",
-        "iz2_dehumid_humid_sp",
-        "lockoutstatus",
-        "lastfault",
-        "lastlockout",
+        "EnteringWaterTemp",
+        "fanpower",
         "homeautomationalarm1",
         "homeautomationalarm2",
-        "iz2_z1_roomtemp",
-        "iz2_z1_activesettings",
+        "humidity_offset_settings",
+        "iz2_dehumid_humid_sp",
+        "iz2_humidity_offset_settings",
+        "lastfault",
+        "lastlockout",
+        "LeavingAirTemp",
+        "lockoutstatus",
+        "looppumppower",
+        "ModeOfOperation",
+        "totalunitpower",
         "TStatActiveSetpoint",
-        "TStatMode",
-        "TStatHeatingSetpoint",
         "TStatCoolingSetpoint",
-        "iz2_z2_roomtemp",
-        "iz2_z2_activesettings",
-        "iz2_z3_roomtemp",
-        "iz2_z3_activesettings",
+        "TStatDehumidSetpoint",
+        "TStatHeatingSetpoint",
+        "TStatMode",
+        "TStatRelativeHumidity",
+        "TStatRoomTemp",
     ]
 
     def __init__(self, username, password):
@@ -335,12 +329,27 @@ class AWL:
     def login_data(self):
         return self._login_data
 
+    def get_gwid_param(self, gwid, param):
+        for location in self._login_data.get('locations'):
+            for gateway in location.get('gateways'):
+                if gateway.get('gwid') == gwid:
+                    return gateway.get(param)
+
     async def read(self, awlid, zone=0,
                    timeout=AWL_DEFAULT_TRANSACTION_TIMEOUT):
+        read_rlist = self.AWL_GATEWAY_RLIST
+
+        max_zones = self.get_gwid_param('iz2_max_zones')
+        if max_zones:
+            for zoneid in range(1, max_zones + 1):
+                read_rlist.extend([
+                    f"iz2_z{zoneid}_roomtemp",
+                    f"iz2_z{zoneid}_activesettings"
+                ])
         read_data = await self._command_wait(
             'read',
             awlid=awlid,
             zone=zone,
-            rlist=self.AWL_GATEWAY_RLIST
+            rlist=read_rlist
         )
         return read_data
