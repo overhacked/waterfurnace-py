@@ -76,9 +76,9 @@ class AWL:
         self._login_data = None
         self.receive_task = None
 
-        self.transaction_lock = asyncio.Lock()
-        self.transactions = dict()
-        self.next_transaction_id = None
+        self._transaction_lock = asyncio.Lock()
+        self._transactions = dict()
+        self._transaction_id = 0
 
     def __del__(self):
         self.http_session.close()
@@ -89,6 +89,30 @@ class AWL:
 
     async def __aexit__(self, *excinfo):
         await self.close()
+
+    async def __next_transaction_id(self):
+        async with self.transaction_lock:
+            self._transaction_id = (self._transaction_id + 1) % 100
+            return self._transaction_id
+
+    async def __reset_transaction_id(self):
+        async with self.transaction_lock:
+            self._transaction_id = 0
+
+    async def __start_transaction(self, tid):
+        async with self.transaction_lock:
+            transaction_future = asyncio.get_running_loop().create_future()
+            self.transactions[tid] = transaction_future
+        return transaction_future
+
+    async def __commit_transaction(self, tid, data):
+        try:
+            async with self.transaction_lock:
+                self._transactions.pop(tid).set_result(data)
+        except KeyError:
+            self.__log.warning(
+                f"< Unknown transaction id {tid}: {data!r}"
+            )
 
     def __http_login(self):
         self.http_session = requests.Session()
@@ -165,9 +189,6 @@ class AWL:
             raise AWLLoginError(
                 f"Invalid websockets URI: {self.websockets_uri}"
             )
-
-        async with self.transaction_lock:
-            self.next_transaction_id = 1
         self.receive_task = asyncio.create_task(self.__websockets_receive())
 
     async def __websockets_receive(self):
@@ -176,18 +197,15 @@ class AWL:
                 self.__log.debug(f"< {message}")
                 data = json.loads(message)
                 tid = data['tid']
-                try:
-                    async with self.transaction_lock:
-                        self.transactions.pop(tid).set_result(data)
-                except KeyError:
-                    self.__log.warning(
-                        f"< Unknown transaction id {tid}: {message}"
-                    )
+                await self.__commit_transaction(tid, data)
         except websockets.ConnectionClosedError:
             self._login_data = None
             raise
 
     async def __websockets_login(self):
+        # Reset transaction ID whenever logging
+        # in again
+        await self.__reset_transaction_id()
         self._login_data = await self._command_wait(
             'login',
             sessionid=self.session_id
@@ -195,11 +213,7 @@ class AWL:
         return self._login_data
 
     async def _command(self, command, **kwargs):
-        async with self.transaction_lock:
-            tid = self.next_transaction_id
-            self.next_transaction_id += 1
-            transaction_future = asyncio.get_running_loop().create_future()
-            self.transactions[tid] = transaction_future
+        tid = await self.__next_transaction_id()
 
         payload = kwargs
         payload.update({
@@ -210,6 +224,7 @@ class AWL:
         payload_json = json.dumps(payload)
         self.__log.debug(f"> {payload_json}")
         await self.websockets_connection.send(payload_json)
+        transaction_future = await self.__start_transaction(tid)
         return transaction_future
 
     async def _command_wait(self, command, **kwargs):
@@ -240,8 +255,6 @@ class AWL:
 
         try:
             self.__http_logout()
-            async with self.transaction_lock:
-                self.next_transaction_id = None
         except (AWLLoginError, IOError):
             self.__log.warning("Logout failed during close()")
             # Ignore any logout errors and just exit

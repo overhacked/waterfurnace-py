@@ -1,9 +1,12 @@
 import asyncio
+import logging
 
+import autologging
 import backoff
 from quart import abort, jsonify, request, Quart
 
 from awl import AWL, AWLConnectionError, AWLLoginError
+
 
 app = Quart(__name__, instance_relative_config=False)
 app.config.update(
@@ -11,17 +14,61 @@ app.config.update(
 )
 app.config.from_pyfile('awl_config.py')
 
+if app.env == 'development':
+    logging.config.dictConfig({
+        "version": 1,
+        "formatters": {
+            "logformatter": {
+                "format":
+                    "%(asctime)s:%(levelname)s:%(name)s:%(funcName)s:%(message)s",
+            },
+            "traceformatter": {
+                "format":
+                    "%(asctime)s:%(process)s:%(levelname)s:%(filename)s:"
+                    "%(lineno)s:%(name)s:%(funcName)s:%(message)s",
+            },
+        },
+        "handlers": {
+            "loghandler": {
+                "class": "logging.FileHandler",
+                "level": logging.DEBUG,
+                "formatter": "logformatter",
+                "filename": "app.log",
+            },
+            "tracehandler": {
+                "class": "logging.FileHandler",
+                "level": autologging.TRACE,
+                "formatter": "traceformatter",
+                "filename": "trace.log",
+            },
+        },
+        "loggers": {
+            'quart.app': {
+                'level': 'DEBUG',
+            },
+            "awl.AWL": {
+                "level": autologging.TRACE,
+                "handlers": ["tracehandler", "loghandler"],
+            },
+        },
+    })
+
 
 async def awl_reconnection_handler():
     try:
         await app.awl_connection.wait_closed()
+        app.logger.debug('app.awl_connection.wait_closed() finished')
     except AWLConnectionError:
         try:
+            app.logger.info('Logging out of AWL')
             app.awl_connection.logout()
+            app.logger.info('AWL logout complete')
         except AWLLoginError:
+            app.logger.info('AWL logout failed; ignoring')
             pass
 
         await asyncio.sleep(1)
+        app.logger.info('Reconnecting to AWL')
         await establish_awl_session()
 
 
