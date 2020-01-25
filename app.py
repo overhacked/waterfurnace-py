@@ -6,6 +6,7 @@ import backoff
 from quart import abort, jsonify, request, Quart
 
 from awl import AWL, AWLConnectionError, AWLLoginError
+from timed_cache import timed_cache
 
 
 app = Quart(__name__, instance_relative_config=False)
@@ -110,6 +111,9 @@ async def close_awl_session():
     await app.awl_connection.close()
 
 
+# Cache reads for 10 seconds to keep from hammering
+# the Symphony API
+@timed_cache(seconds=10)
 async def awl_read_gateway(gwid):
     return await app.awl_connection.read(gwid)
 
