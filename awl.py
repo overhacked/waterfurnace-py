@@ -337,7 +337,7 @@ class AWL:
 
     async def read(self, awlid, zone=0,
                    timeout=AWL_DEFAULT_TRANSACTION_TIMEOUT):
-        read_rlist = self.AWL_GATEWAY_RLIST
+        read_rlist = self.AWL_GATEWAY_RLIST.copy()
 
         max_zones = self.get_gwid_param(awlid, 'iz2_max_zones')
         if max_zones:
