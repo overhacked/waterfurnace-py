@@ -91,23 +91,23 @@ class AWL:
         await self.close()
 
     async def __next_transaction_id(self):
-        async with self.transaction_lock:
+        async with self._transaction_lock:
             self._transaction_id = (self._transaction_id + 1) % 100
             return self._transaction_id
 
     async def __reset_transaction_id(self):
-        async with self.transaction_lock:
+        async with self._transaction_lock:
             self._transaction_id = 0
 
     async def __start_transaction(self, tid):
-        async with self.transaction_lock:
+        async with self._transaction_lock:
             transaction_future = asyncio.get_running_loop().create_future()
             self.transactions[tid] = transaction_future
         return transaction_future
 
     async def __commit_transaction(self, tid, data):
         try:
-            async with self.transaction_lock:
+            async with self._transaction_lock:
                 self._transactions.pop(tid).set_result(data)
         except KeyError:
             self.__log.warning(
