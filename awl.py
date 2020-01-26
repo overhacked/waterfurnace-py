@@ -243,7 +243,10 @@ class AWL:
         try:
             async for message in self.websockets_connection:
                 self.__log.debug(f"< {message}")
-                data = json.loads(message)
+                try:
+                    data = json.loads(message)
+                except ValueError:
+                    self.__log.error(f"JSON decoding error on message: {message}")
 
                 try:
                     tid = data['tid']

@@ -2,8 +2,6 @@
 
 - Login hangs on invalid credentials
 - Presence of sessionid cookie not validated
-- Read request template should be `copy.deepcopy()`
-- Catch JSON decode errors
 
 # Production goals
 
@@ -17,4 +15,3 @@
 
 - Test suite
 - Optional value mapping (via `WFReading` object?)
-- Type annotations, especially `Final`
