@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import asyncio
+import copy
 import json
 import re
 import requests
@@ -347,7 +348,7 @@ class AWL:
 
     async def read(self, awlid, zone=0,
                    timeout=AWL_DEFAULT_TRANSACTION_TIMEOUT):
-        read_rlist = self.AWL_GATEWAY_RLIST.copy()
+        read_rlist = copy.deepcopy(self.AWL_GATEWAY_RLIST)
 
         max_zones = self.get_gwid_param(awlid, 'iz2_max_zones')
         if max_zones:
