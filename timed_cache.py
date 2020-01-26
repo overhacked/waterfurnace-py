@@ -6,6 +6,13 @@ import functools
 __all__ = ['timed_cache']
 
 
+# Adapted from:
+# for asyncio:
+#     https://gist.github.com/dlebech/c16a34f735c0c4e9b604
+# for timed expiration:
+#     https://gist.github.com/Morreski/c1d08a3afa4040815eafd3891e16b945
+
+
 def _wrap_coroutine_storage(cache_dict, key, future):
     async def wrapper():
         val = await future
