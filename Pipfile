@@ -4,6 +4,8 @@ url = "https://pypi.org/simple"
 verify_ssl = true
 
 [dev-packages]
+python-language-server = "*"
+pyls-mypy = "*"
 
 [packages]
 websockets = "*"
@@ -14,4 +16,4 @@ quart = "*"
 backoff = "*"
 
 [requires]
-python_version = "3.7"
+python_version = "3.8"
