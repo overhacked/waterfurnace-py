@@ -1,7 +1,6 @@
-# Bugs
+# Known Issues
 
-- Login hangs on invalid credentials
-- Presence of sessionid cookie not validated
+- If AWL credentials are changed while the app is running, Hypercorn hangs forever. The fix is to reconfigure credentials and restart the server. The long term fix is for Quart to hook into the `shutdown_trigger` argument of Hypercorn's `serve()` function.
 
 # Production goals
 
