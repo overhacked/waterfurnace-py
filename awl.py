@@ -130,6 +130,8 @@ class AWL:
                     self.__log.debug(f"Cancelled transaction tid={tid}")
             # Reset the transaction id
             self._transaction_id = 0
+            # Clear the login_data
+            self._login_data = None
 
     async def __start_transaction(self, tid: int, timeout: int) -> asyncio.Future:
         async with self._transaction_lock:
@@ -258,8 +260,8 @@ class AWL:
                     await self.__abort_transaction(tid, data['err'])
                     continue
                 await self.__commit_transaction(tid, data)
-        except websockets.ConnectionClosedError:
-            self._login_data = None
+        except websockets.ConnectionClosed:
+            await self.__reset_transaction_id()
             raise
 
     async def __websockets_login(self):
@@ -293,7 +295,11 @@ class AWL:
         transaction_future = await (
             self.__start_transaction(tid, transaction_timeout)
         )
-        await self.websockets_connection.send(payload_json)
+        try:
+            await self.websockets_connection.send(payload_json)
+        except websockets.ConnectionClosed:
+            self.__reset_transaction_id()
+            raise AWLConnectionError(f"Websockets connection closed")
         return transaction_future
 
     async def _command_wait(self, command: str, **kwargs):
@@ -308,8 +314,8 @@ class AWL:
 
     async def wait_closed(self):
         try:
-            await self.receive_task
-        except websockets.ConnectionClosedError:
+            await self.websockets_connection.wait_closed()
+        except websockets.ConnectionClosed:
             self.__log.info('websockets connection closed unexpectedly')
             raise AWLConnectionError()
 
