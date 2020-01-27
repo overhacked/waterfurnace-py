@@ -184,12 +184,16 @@ class AWL:
                 }
             )
         except requests.ConnectionError:
-            raise AWLLoginError(f"Could not connect to {self.LOGIN_URI}")
+            raise AWLConnectionError(f"Could not connect to {self.LOGIN_URI}")
 
         try:
             login_response.raise_for_status()
         except requests.HTTPError:
             raise AWLLoginError(f"Login failed: {login_response.reason}")
+
+        if self.session_id is None:
+            raise AWLLoginError("Login failed; could not establish session. "
+                                "Check credentials.")
 
     def __http_logout(self):
         try:
@@ -200,7 +204,7 @@ class AWL:
                 timeout=2.0,
             )
         except requests.ConnectionError:
-            raise AWLLoginError(f"Could not connect to {logout_uri}")
+            raise AWLConnectionError(f"Could not connect to {logout_uri}")
 
         try:
             logout_response.raise_for_status()
@@ -232,7 +236,7 @@ class AWL:
                 websockets.connect(websockets_uri)
             )
         except websockets.InvalidHandshake:
-            raise AWLLoginError(
+            raise AWLConnectionError(
                 "Unable to connect to AWL websockets URI"
             )
         except websockets.InvalidURI:

@@ -94,7 +94,7 @@ async def backoff_success_handler(details):
 
 @app.before_serving
 @backoff.on_exception(backoff.expo,
-                      (AWLConnectionError, AWLLoginError),
+                      AWLConnectionError,
                       on_backoff=backoff_handler,
                       on_success=backoff_success_handler)
 async def establish_awl_session():
