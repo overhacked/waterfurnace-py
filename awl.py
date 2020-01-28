@@ -282,7 +282,7 @@ class AWL:
                        transaction_timeout: int = AWL_DEFAULT_TRANSACTION_TIMEOUT,
                        **kwargs) -> asyncio.Future:
         if (
-            self._login_data is None
+            (command != 'login' and self._login_data is None)
             or self.websockets_connection is None
             or not self.websockets_connection.open
            ):
