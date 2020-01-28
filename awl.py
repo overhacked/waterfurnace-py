@@ -302,7 +302,7 @@ class AWL:
         try:
             await self.websockets_connection.send(payload_json)
         except websockets.ConnectionClosed:
-            self.__reset_transaction_id()
+            await self.__reset_transaction_id()
             raise AWLConnectionError(f"Websockets connection closed")
         return transaction_future
 
