@@ -281,7 +281,11 @@ class AWL:
     async def _command(self, command: str,
                        transaction_timeout: int = AWL_DEFAULT_TRANSACTION_TIMEOUT,
                        **kwargs) -> asyncio.Future:
-        if self.websockets_connection is None:
+        if (
+            self._login_data is None
+            or self.websockets_connection is None
+            or not self.websockets_connection.open
+           ):
             raise AWLConnectionError(f"Call {__name__}.connect() before making requests")
 
         tid = await self.__next_transaction_id()
