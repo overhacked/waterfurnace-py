@@ -318,9 +318,9 @@ class AWL:
 
     async def wait_closed(self):
         try:
-            await self.websockets_connection.wait_closed()
-        except websockets.ConnectionClosed:
-            self.__log.info('websockets connection closed unexpectedly')
+            await self.receive_task
+        except websockets.ConnectionClosedError:
+            self.__log.error('websockets connection closed unexpectedly')
             raise AWLConnectionError()
 
     async def connect(self):

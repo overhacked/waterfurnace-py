@@ -68,9 +68,11 @@ async def awl_reconnection_handler():
             app.logger.info('AWL logout failed; ignoring')
             pass
 
-        await asyncio.sleep(1)
-        app.logger.info('Reconnecting to AWL')
-        await establish_awl_session()
+    # Re-establish session whenever wait_closed returns,
+    # whether with an exception or not
+    await asyncio.sleep(1)
+    app.logger.info('Reconnecting to AWL')
+    await establish_awl_session()
 
 
 async def backoff_handler(details):
