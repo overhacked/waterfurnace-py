@@ -162,7 +162,10 @@ async def establish_awl_session():
         app.config['WATERFURNACE_PASSWORD']
     )
     await app.awl_connection.connect()
-    asyncio.create_task(awl_reconnection_handler())
+    asyncio.create_task(
+        awl_reconnection_handler(),
+        name='reconnection_loop'
+    )
 
 
 @app.after_serving
