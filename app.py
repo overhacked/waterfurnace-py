@@ -1,58 +1,44 @@
 import asyncio
 import logging
+import sys
 
-import autologging
 import backoff
 from quart import abort, jsonify, request, Quart
 
 from awl import AWL, AWLConnectionError, AWLLoginError
 from timed_cache import timed_cache
 
+app = Quart(__name__)
+# Different defaults based on development vs production
+if app.env in ('development', 'testing',):
+    app.config.from_mapping(
+        WEBSOCKETS_WARN_AFTER_DISCONNECTED=0,
+    )
+elif app.env == 'production':
+    app.config.from_mapping(
+        WEBSOCKETS_WARN_AFTER_DISCONNECTED=10,
+    )
 
-app = Quart(__name__, instance_relative_config=False)
-app.config.update(
-    websockets_warn_after_disconnected=10,
+# environment common defaults
+app.config.from_mapping(
+    LOG_DIRECTORY=app.instance_path,
+    TRACE_LOG=None,
+    ACCESS_LOG='access.log',
 )
-app.config.from_pyfile('awl_config.py')
 
-if app.env == 'development':
-    logging.config.dictConfig({
-        "version": 1,
-        "formatters": {
-            "logformatter": {
-                "format":
-                    "%(asctime)s:%(levelname)s:%(name)s:%(funcName)s:%(message)s",
-            },
-            "traceformatter": {
-                "format":
-                    "%(asctime)s:%(process)s:%(levelname)s:%(filename)s:"
-                    "%(lineno)s:%(name)s:%(funcName)s:%(message)s",
-            },
-        },
-        "handlers": {
-            "loghandler": {
-                "class": "logging.FileHandler",
-                "level": logging.DEBUG,
-                "formatter": "logformatter",
-                "filename": "app.log",
-            },
-            "tracehandler": {
-                "class": "logging.FileHandler",
-                "level": autologging.TRACE,
-                "formatter": "traceformatter",
-                "filename": "trace.log",
-            },
-        },
-        "loggers": {
-            'quart.app': {
-                'level': 'DEBUG',
-            },
-            "awl.AWL": {
-                "level": autologging.TRACE,
-                "handlers": ["tracehandler", "loghandler"],
-            },
-        },
-    })
+# Load configuration file, if present
+app.config.from_envvar('WATERFURNACE_CONFIG', silent=True)
+
+# Validate configuration
+required_config_keys = [
+    'WATERFURNACE_USER',
+    'WATERFURNACE_PASSWORD',
+    'LOG_DIRECTORY',
+]
+for name in required_config_keys:
+    if name not in app.config:
+        print(f"{name} is a required configuration variable")
+        sys.exit(255)
 
 
 async def awl_reconnection_handler():
