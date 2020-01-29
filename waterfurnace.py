@@ -1,38 +1,12 @@
 import asyncio
 import logging
-import os
-import sys
 
-import autologging
 import backoff
 import quart
-from quart import abort, jsonify, request, Quart
-from quart.logging import _setup_logging_queue as setup_logging_queue
+from quart import abort, jsonify, request
 
 from awl import AWL, AWLConnectionError, AWLLoginError
 from timed_cache import timed_cache
-
-default_logging_formatter = logging.Formatter(
-    "%(asctime)s:%(levelname)s:%(name)s:%(funcName)s:%(message)s",
-)
-
-console_handler = logging.StreamHandler()
-console_handler.setLevel(logging.ERROR)
-console_handler.setFormatter(default_logging_formatter)
-syslog_handler = logging.handlers.SysLogHandler(facility='local1')
-syslog_handler.setLevel(logging.INFO)
-syslog_handler.setFormatter(default_logging_formatter)
-
-root_logger = logging.getLogger()
-root_logger.setLevel(logging.INFO)
-root_logger.addHandler(setup_logging_queue(console_handler))
-root_logger.addHandler(setup_logging_queue(syslog_handler))
-
-# Set default levels
-logging.getLogger('awl.AWL').setLevel(logging.ERROR)
-logging.getLogger('quart.app').setLevel(logging.INFO)
-# Suppress access logs by default
-logging.getLogger('quart.serving').setLevel(logging.ERROR)
 
 
 # Monkeypatch Quart's logging functions so
@@ -45,71 +19,7 @@ quart.app.create_serving_logger = (
     lambda: logging.getLogger('quart.serving')
 )
 
-
-app = Quart(__name__)
-# Different defaults based on development vs production
-if app.env in ('development', 'testing',):
-    app.config.from_mapping(
-        WEBSOCKETS_WARN_AFTER_DISCONNECTED=0,
-    )
-elif app.env == 'production':
-    app.config.from_mapping(
-        WEBSOCKETS_WARN_AFTER_DISCONNECTED=10,
-    )
-
-# environment common defaults
-app.config.from_mapping(
-    LOG_DIRECTORY=app.instance_path,
-    TRACE_LOG=None,
-    ACCESS_LOG='access.log',
-)
-
-# Load configuration file, if present
-app.config.from_envvar('WATERFURNACE_CONFIG', silent=True)
-
-# Validate configuration
-required_config_keys = [
-    'WATERFURNACE_USER',
-    'WATERFURNACE_PASSWORD',
-    'LOG_DIRECTORY',
-]
-for name in required_config_keys:
-    if name not in app.config:
-        print(f"{name} is a required configuration variable")
-        sys.exit(255)
-
-if app.config.get('ACCESS_LOG') is not None:
-    access_handler = logging.handlers.TimedRotatingFileHandler(
-        os.path.join(app.config['LOG_DIRECTORY'], app.config['ACCESS_LOG']),
-        when='midnight'
-    )
-    access_handler.setFormatter(
-        logging.Formatter('%(asctime)s %(message)s')
-    )
-    access_handler.setLevel(logging.INFO)
-    access_logger = logging.getLogger('quart.serving')
-    access_logger.setLevel(logging.INFO)
-    # Disable propagation so access lines don't show
-    # up in any other logs
-    access_logger.propagate = False
-    access_logger.addHandler(setup_logging_queue(access_handler))
-
-if app.config.get('TRACE_LOG') is not None:
-    trace_handler = logging.handlers.TimedRotatingFileHandler(
-        os.path.join(app.config['LOG_DIRECTORY'], app.config['TRACE_LOG']),
-        when='midnight'
-    )
-    trace_handler.setLevel(autologging.TRACE)
-    trace_handler.setFormatter(logging.Formatter(
-        "%(asctime)s:%(process)s:%(levelname)s:%(filename)s:"
-        "%(lineno)s:%(name)s:%(funcName)s:%(message)s"
-    ))
-    logging.getLogger().addHandler(setup_logging_queue(trace_handler))
-    logging.getLogger().setLevel(autologging.TRACE)
-
-    logging.getLogger("awl.AWL").setLevel(autologging.TRACE)
-    logging.getLogger("websockets").setLevel(logging.DEBUG)
-    logging.getLogger("quart").setLevel(logging.DEBUG)
+app = quart.Quart(__name__)
 
 
 async def awl_reconnection_handler():
