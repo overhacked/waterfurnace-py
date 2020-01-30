@@ -28,6 +28,10 @@ class AWLTransactionError(RuntimeError):
     pass
 
 
+class AWLTransactionTimeout(AWLTransactionError):
+    pass
+
+
 @logged
 @traced
 class AWL:
@@ -133,15 +137,19 @@ class AWL:
             # Clear the login_data
             self._login_data = None
 
-    async def __start_transaction(self, tid: int, timeout: int) -> asyncio.Future:
+    async def __start_transaction(self, tid: int, timeout: int) -> asyncio.Task:
         async with self._transaction_lock:
             transaction_future = asyncio.get_running_loop().create_future()
             self._transactions[tid] = transaction_future
-            # Cancel the future if the timeout expires
-            asyncio.create_task(
-                asyncio.wait_for(transaction_future, timeout)
-            )
-        return transaction_future
+
+        # Cancel the future if the timeout expires
+        async def __await_transaction_result():
+            try:
+                return await asyncio.wait_for(transaction_future, timeout)
+            except asyncio.TimeoutError:
+                raise AWLTransactionTimeout('Transaction timed out')
+
+        return asyncio.create_task(__await_transaction_result())
 
     async def __commit_transaction(self, tid: int, data: Any):
         try:

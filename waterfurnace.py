@@ -5,7 +5,13 @@ import backoff
 import quart
 from quart import abort, jsonify, request
 
-from awl import AWL, AWLConnectionError, AWLLoginError
+from awl import (
+    AWL,
+    AWLConnectionError,
+    AWLLoginError,
+    AWLTransactionError,
+    AWLTransactionTimeout
+)
 from timed_cache import timed_cache
 
 
@@ -87,7 +93,12 @@ async def close_awl_session():
 # the Symphony API
 @timed_cache(seconds=10)
 async def awl_read_gateway(gwid):
-    return await app.awl_connection.read(gwid)
+    try:
+        return await app.awl_connection.read(gwid)
+    except AWLTransactionTimeout:
+        abort(504, "AWL read timed out")
+    except AWLTransactionError as e:
+        abort(503, f"AWL transaction error: {e!s}")
 
 
 def awl_enumerate_gateways():
@@ -171,9 +182,13 @@ async def view_gateway_zone(gwid, zoneid):
         if zone['gwid'] == gwid and zone['zoneid'] == zoneid
     ]
     if len(gateway_zone) == 0:
-        abort(404)
+        abort(404,
+              f"The gateway {gwid} does not have a zone {zoneid}",
+              'Zone Not Found')
     if len(gateway_zone) > 1:
-        abort(500)
+        abort(500,
+              'More than one zone was returned '
+              'for the gateway/zone ID specified')
     return jsonify(gateway_zone[0])
 
 
@@ -189,6 +204,10 @@ async def read_zone(gwid, zoneid):
         (key, value) in gateway_data.items()
         if key.startswith(zone_prefix)
     }
+    if len(zone_raw_data) == 0:
+        abort(404,
+              f"The gateway {gwid} does not have a zone {zoneid}",
+              'Zone Not Found')
 
     # Pull e.g. $.iz2_z1_activesettings.* up
     # to the top level
