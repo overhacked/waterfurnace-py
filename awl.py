@@ -12,8 +12,8 @@ import websockets
 from autologging import logged, traced
 
 
-# Default 1 hour timeout
-AWL_DEFAULT_TRANSACTION_TIMEOUT: Final = 60*60
+# Default 30 second timeout
+AWL_DEFAULT_TRANSACTION_TIMEOUT: Final = 30
 
 
 class AWLLoginError(RuntimeError):
