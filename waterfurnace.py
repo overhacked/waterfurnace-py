@@ -51,7 +51,7 @@ async def awl_reconnection_handler():
 
 async def backoff_handler(details):
     try:
-        max_elapsed = float(app.config['websockets_warn_after_disconnected'])
+        max_elapsed = float(app.config['WEBSOCKETS_WARN_AFTER_DISCONNECTED'])
     except ValueError:
         max_elapsed = 0.0
 
