@@ -321,6 +321,16 @@ class AWL:
             if timeout_task in done:
                 # Reconnect session
                 self.__log.debug('Timeout, renewing session')
+                receive_task.cancel()
+                try:
+                    await asyncio.wait_for(receive_task, timeout=1.0)
+                except asyncio.CancelledError:
+                    self.__log.debug('Cancelled receive task')
+                except asyncio.TimeoutError:
+                    self.__log.debug('receive_task.cancel() timed out')
+                    raise AWLConnectionError('Could not cancel receive task '
+                                             'during session renewal')
+
                 receive_task, timeout_task = await (
                     self.__renew_session(websockets_uri)
                 )
