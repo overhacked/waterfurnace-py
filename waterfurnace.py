@@ -34,9 +34,9 @@ async def awl_reconnection_handler():
         app.logger.debug('app.awl_connection.wait_closed() finished')
     except AWLConnectionError:
         try:
-            app.logger.info('Logging out of AWL')
-            app.awl_connection.logout()
-            app.logger.info('AWL logout complete')
+            app.logger.info('Closing AWL connection')
+            await app.awl_connection.close()
+            app.logger.info('Closed AWL connection')
         except (AWLConnectionError, AWLLoginError):
             app.logger.warning('AWL logout failed; ignoring')
             pass
@@ -45,6 +45,7 @@ async def awl_reconnection_handler():
     # whether with an exception or not
     await asyncio.sleep(1)
     app.logger.info('Reconnecting to AWL')
+    del app.awl_connection
     await establish_awl_session()
 
 
