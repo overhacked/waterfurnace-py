@@ -87,7 +87,7 @@ class AWL:
 
         self.websockets_connection: Optional[websockets.client.WebSocketClientProtocol] = None
         self._login_data: Optional[dict] = None
-        self.receive_task: Optional[asyncio.Task] = None
+        self._websockets_task: Optional[asyncio.Task] = None
 
         self._transaction_lock: Final[asyncio.Lock] = asyncio.Lock()
         self._transactions: Final[Dict[int, asyncio.Future]] = dict()
@@ -243,6 +243,11 @@ class AWL:
             self.websockets_connection = await (
                 websockets.connect(websockets_uri)
             )
+            receive_task = asyncio.create_task(
+                self.__websockets_receive()
+            )
+            await self.__websockets_login()
+            return receive_task
         except websockets.InvalidHandshake:
             raise AWLConnectionError(
                 "Unable to connect to AWL websockets URI"
@@ -251,30 +256,75 @@ class AWL:
             raise AWLLoginError(
                 f"Invalid websockets URI: {websockets_uri}"
             )
-        self.receive_task = asyncio.create_task(self.__websockets_receive())
-
-    async def __websockets_receive(self):
-        try:
-            async for message in self.websockets_connection:
-                self.__log.debug(f"< {message}")
-                try:
-                    data = json.loads(message)
-                except ValueError:
-                    self.__log.error(f"JSON decoding error on message: {message}")
-
-                try:
-                    tid = data['tid']
-                except KeyError:
-                    self.__log.error(f"Message came in without tid: {message}")
-                    continue
-
-                if data.get('err'):
-                    await self.__abort_transaction(tid, data['err'])
-                    continue
-                await self.__commit_transaction(tid, data)
         except websockets.ConnectionClosed:
-            await self.__reset_transaction_id()
-            raise
+            raise AWLLoginError(
+                f"Websockets connection was closed while logging in"
+            )
+
+    async def __websockets_close(self):
+        if self.websockets_connection is not None:
+            await self.websockets_connection.close()
+
+    async def __renew_session(self,
+                              websockets_uri: str
+                              ) -> (asyncio.Task, asyncio.Task):
+        async def __session_timeout():
+            await asyncio.sleep(self.SESSION_TIMEOUT)
+            self.__log.info("Reconnecting due to session timeout")
+
+        await self.__websockets_close()
+        await self.__http_logout()
+        await self.__http_login()
+        receive_task = await self.__websockets_connect(websockets_uri)
+        timeout_task = asyncio.create_task(
+            __session_timeout()
+        )
+
+        return (receive_task, timeout_task,)
+
+    async def __websockets_handler(self, websockets_uri: str) -> None:
+        receive_task, timeout_task = await self.__renew_session(websockets_uri)
+        pending = {receive_task, timeout_task}
+        while self.websockets_connection.open:
+            self.__log.debug('Awaiting timeout or receive loop exit')
+            done, pending = await asyncio.wait(
+                pending,
+                return_when=asyncio.FIRST_COMPLETED
+            )
+            if timeout_task in done:
+                # Reconnect session
+                self.__log.debug('Timeout, renewing session')
+                receive_task, timeout_task = await (
+                    self.__renew_session(websockets_uri)
+                )
+                pending = {receive_task, timeout_task}
+            if receive_task in done:
+                self.__log.debug('Receive task finished')
+                if receive_task.exception():
+                    self.__log.debug('Receive task returned exception')
+                    raise receive_task.exception()
+                return
+
+    async def __websockets_receive(self) -> None:
+        async for message in self.websockets_connection:
+            self.__log.debug(f"< {message}")
+            try:
+                data = json.loads(message)
+            except ValueError:
+                self.__log.error(f"JSON decoding error on message: {message}")
+                return
+
+            try:
+                tid = data['tid']
+            except KeyError:
+                self.__log.error(f"Message came in without tid: {message}")
+                return
+
+            if data.get('err'):
+                await self.__abort_transaction(tid, data['err'])
+                return
+
+            await self.__commit_transaction(tid, data)
 
     async def __websockets_login(self):
         # Reset transaction ID whenever logging
@@ -330,40 +380,30 @@ class AWL:
 
     async def wait_closed(self):
         try:
-            await self.receive_task
+            await self._websockets_task
         except websockets.ConnectionClosedOK:
             self.__log.info(f"websockets connection closed: "
-                            f"{self.receive_task.exception()!s}")
+                            f"{self._websockets_task.exception()!s}")
             return
         except websockets.ConnectionClosedError:
             self.__log.error('websockets connection closed unexpectedly')
-            raise AWLConnectionError() from self.receive_task.exception()
+            raise AWLConnectionError() from self._websockets_task.exception()
 
     async def connect(self):
-        self.__http_login()
-        websockets_uri = self.__get_websockets_uri()
+        await self.__http_login()
+        websockets_uri = await self.__get_websockets_uri()
 
-        await self.__websockets_connect(websockets_uri)
-        await self.__websockets_login()
-        asyncio.create_task(self.reconnect_session())
-
-    async def reconnect_session(self):
-        await asyncio.sleep(self.SESSION_TIMEOUT)
-        self.__log.info("Reconnecting due to session timeout")
-        await self.close()
-        await self.connect()
-
-    def logout(self):
-        return self.__http_logout()
+        self._websockets_task = asyncio.create_task(
+            self.__websockets_handler(websockets_uri)
+        )
 
     async def close(self):
-        if self.websockets_connection is not None:
-            await self.websockets_connection.close()
+        await self.__websockets_close()
 
         try:
-            self.__http_logout()
-        except (AWLLoginError, IOError):
-            self.__log.warning("Logout failed during close()")
+            await self.__http_logout()
+        except Exception:
+            self.__log.warning("Logout failed while closing AWL session")
             # Ignore any logout errors and just exit
             pass
 
