@@ -172,7 +172,13 @@ class AWL:
             )
             pass
 
-    def __http_login(self):
+    async def __http_login(self):
+        return await asyncio.get_running_loop().run_in_executor(
+            None,
+            self.__http_login_sync
+        )
+
+    def __http_login_sync(self):
         self.http_session = requests.Session()
         self.http_session.cookies.set(
             'legal-acknowledge', 'yes',
@@ -203,7 +209,17 @@ class AWL:
             raise AWLLoginError("Login failed; could not establish session. "
                                 "Check credentials.")
 
-    def __http_logout(self):
+    async def __http_logout(self):
+        return await asyncio.get_running_loop().run_in_executor(
+            None,
+            self.__http_logout_sync
+        )
+
+    def __http_logout_sync(self):
+        if not self.session_id:
+            # Idempotent logout if not logged in
+            return
+
         try:
             logout_uri = self.LOGIN_URI + '?op=logout'
             logout_response = self.http_session.get(
@@ -219,7 +235,13 @@ class AWL:
         except requests.HTTPError:
             raise AWLLoginError(f"Logout failed: {logout_response.reason}")
 
-    def __get_websockets_uri(self) -> str:
+    async def __get_websockets_uri(self):
+        return await asyncio.get_running_loop().run_in_executor(
+            None,
+            self.__get_websockets_uri_sync
+        )
+
+    def __get_websockets_uri_sync(self) -> str:
         wssuri_response = self.http_session.get(self.AWLCONFIG_URI)
         try:
             wssuri_response.raise_for_status()
