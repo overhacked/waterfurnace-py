@@ -40,6 +40,9 @@ async def awl_reconnection_handler():
         except (AWLConnectionError, AWLLoginError):
             app.logger.warning('AWL logout failed; ignoring')
             pass
+    except AWLLoginError:
+        # Login failed during session renewal
+        app.logger.warning('AWL login failed during session renewal')
 
     # Re-establish session whenever wait_closed returns,
     # whether with an exception or not
