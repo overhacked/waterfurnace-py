@@ -25,6 +25,14 @@ def _signal_handler(*_: Any) -> None:
     waterfurnace.app.shutdown_trigger.set()
 
 
+def _loop_exception_handler(loop, context):
+    waterfurnace.app.logger.critical(
+        f"Unhandled exception: {context.message}, shutting down",
+        exc_info=context.get('exception')
+    )
+    waterfurnace.app.shutdown_trigger.set()
+
+
 def configure_default_logging() -> None:
     console_handler = logging.StreamHandler()
     console_handler.setLevel(logging.ERROR)
@@ -132,6 +140,7 @@ def run_hypercorn(app: quart.Quart):
     loop = asyncio.get_event_loop()
     loop.add_signal_handler(signal.SIGTERM, _signal_handler)
     loop.add_signal_handler(signal.SIGINT, _signal_handler)
+    loop.set_exception_handler(_loop_exception_handler)
     loop.run_until_complete(
         hypercorn_serve(
             waterfurnace.app,
