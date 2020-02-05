@@ -202,7 +202,7 @@ class AWL:
                     'password': self.password,
                 }
             )
-        except requests.ConnectionError:
+        except requests.RequestException:
             raise AWLConnectionError(f"Could not connect to {self.LOGIN_URI}")
 
         try:
@@ -232,7 +232,7 @@ class AWL:
                 allow_redirects=False,
                 timeout=2.0,
             )
-        except requests.ConnectionError:
+        except requests.RequestException:
             raise AWLConnectionError(f"Could not connect to {logout_uri}")
 
         try:
