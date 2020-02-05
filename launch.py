@@ -27,7 +27,7 @@ def _signal_handler(*_: Any) -> None:
 
 def _loop_exception_handler(loop, context):
     waterfurnace.app.logger.critical(
-        f"Unhandled exception: {context.message}, shutting down",
+        f"Unhandled exception: {context['message']}, shutting down",
         exc_info=context.get('exception')
     )
     waterfurnace.app.shutdown_trigger.set()
