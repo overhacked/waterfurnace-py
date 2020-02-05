@@ -57,11 +57,13 @@ def configure_app(app: quart.Quart):
     # Different defaults based on development vs production
     if app.env in ('development', 'testing',):
         app.config.from_mapping(
+            AWL_API_TIMEOUT=2.0,
             WEBSOCKETS_WARN_AFTER_DISCONNECTED=0,
             LISTEN='localhost:5000',
         )
     elif app.env == 'production':
         app.config.from_mapping(
+            AWL_API_TIMEOUT=10.0,
             WEBSOCKETS_WARN_AFTER_DISCONNECTED=10,
             LISTEN='localhost:8000'
         )

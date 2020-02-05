@@ -8,6 +8,7 @@ from quart import abort, jsonify, request
 from awl import (
     AWL,
     AWLConnectionError,
+    AWLNotConnectedError,
     AWLLoginError,
     AWLTransactionError,
     AWLTransactionTimeout
@@ -98,11 +99,20 @@ async def close_awl_session():
 @timed_cache(seconds=10)
 async def awl_read_gateway(gwid):
     try:
-        return await app.awl_connection.read(gwid)
+        return await awl_read_gateway_retry_wrapper(gwid)
     except AWLTransactionTimeout:
         abort(504, "AWL read timed out")
     except AWLTransactionError as e:
         abort(503, f"AWL transaction error: {e!s}")
+    except AWLNotConnectedError:
+        abort(504, "AWL API not connected")
+
+
+@backoff.on_exception(backoff.constant,
+                      AWLConnectionError,
+                      max_time=app.config.get('AWL_API_TIMEOUT', 0))
+async def awl_read_gateway_retry_wrapper(gwid):
+    return await app.awl_connection.read(gwid)
 
 
 def awl_enumerate_gateways():

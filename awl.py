@@ -16,15 +16,23 @@ from autologging import logged, traced
 AWL_DEFAULT_TRANSACTION_TIMEOUT: Final = 30
 
 
-class AWLLoginError(RuntimeError):
+class AWLException(Exception):
     pass
 
 
-class AWLConnectionError(RuntimeError):
+class AWLLoginError(AWLException):
     pass
 
 
-class AWLTransactionError(RuntimeError):
+class AWLConnectionError(AWLException):
+    pass
+
+
+class AWLNotConnectedError(AWLConnectionError):
+    pass
+
+
+class AWLTransactionError(AWLException):
     pass
 
 
@@ -381,7 +389,8 @@ class AWL:
             or self.websockets_connection is None
             or not self.websockets_connection.open
            ):
-            raise AWLConnectionError(f"Call {__name__}.connect() before making requests")
+            raise AWLNotConnectedError(f"Call {__name__}.connect() "
+                                       f"before making requests")
 
         tid = await self.__next_transaction_id()
 
