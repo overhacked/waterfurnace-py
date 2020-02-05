@@ -108,9 +108,13 @@ async def awl_read_gateway(gwid):
         abort(504, "AWL API not connected")
 
 
+def get_config_awl_api_timeout():
+    return app.config.get('AWL_API_TIMEOUT', 0)
+
+
 @backoff.on_exception(backoff.constant,
-                      AWLConnectionError,
-                      max_time=app.config.get('AWL_API_TIMEOUT', 0))
+                      (AWLConnectionError, AWLTransactionTimeout),
+                      max_time=get_config_awl_api_timeout)
 async def awl_read_gateway_retry_wrapper(gwid):
     return await app.awl_connection.read(gwid)
 
