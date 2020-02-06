@@ -70,6 +70,8 @@ def configure_app(app: quart.Quart):
 
     # environment common defaults
     app.config.from_mapping(
+        AWL_CONNECT_TIMEOUT=None,
+        AWL_LOGIN_TIMEOUT=60*60,  # Default 1 hour
         LOG_DIRECTORY=app.instance_path,
         TRACE_LOG=None,
         ACCESS_LOG='access.log',

@@ -1,4 +1,5 @@
 import asyncio
+import functools
 import logging
 
 import backoff
@@ -27,6 +28,10 @@ quart.app.create_serving_logger = (
 )
 
 app = quart.Quart(__name__)
+
+
+def get_runtime_config(key, default=None):
+    return functools.partial(app.config.get, key, default)
 
 
 async def awl_reconnection_handler():
@@ -76,7 +81,13 @@ async def backoff_success_handler(details):
 @backoff.on_exception(backoff.expo,
                       AWLConnectionError,
                       on_backoff=backoff_handler,
-                      on_success=backoff_success_handler)
+                      on_success=backoff_success_handler,
+                      max_time=get_runtime_config('AWL_CONNECT_TIMEOUT'))
+@backoff.on_exception(backoff.expo,
+                      AWLLoginError,
+                      on_backoff=backoff_handler,
+                      on_success=backoff_success_handler,
+                      max_time=get_runtime_config('AWL_LOGIN_TIMEOUT'))
 async def establish_awl_session():
     app.awl_connection = AWL(
         app.config['WATERFURNACE_USER'],
@@ -108,13 +119,9 @@ async def awl_read_gateway(gwid):
         abort(504, "AWL API not connected")
 
 
-def get_config_awl_api_timeout():
-    return app.config.get('AWL_API_TIMEOUT', 0)
-
-
 @backoff.on_exception(backoff.constant,
                       (AWLConnectionError, AWLTransactionTimeout),
-                      max_time=get_config_awl_api_timeout)
+                      max_time=get_runtime_config('AWL_API_TIMEOUT', 0))
 async def awl_read_gateway_retry_wrapper(gwid):
     return await app.awl_connection.read(gwid)
 
