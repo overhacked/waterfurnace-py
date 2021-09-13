@@ -8,10 +8,10 @@ verify_ssl = true
 [packages]
 websockets = "*"
 Autologging = "*"
-requests = "*"
-urllib3 = "*"
-quart = "*"
-backoff = "*"
+requests = "2"
+urllib3 = "1"
+quart = "~=0.10"
+backoff = "~=1.10"
 
 [requires]
 python_version = "3.8"
